@@ -3,335 +3,904 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Steven Universe Alchemy</title>
-
+<title>Crystal Alchemy — Steven Universe</title>
 <style>
-body{
-    margin:0;
-    background:linear-gradient(#09162d,#1e1a44);
-    color:white;
-    font-family:Arial,sans-serif;
-    overflow:hidden;
-}
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Nunito:wght@300;400;600;700&display=swap');
 
-#sidebar{
-    position:absolute;
-    left:0;
-    top:0;
-    width:240px;
-    height:100vh;
-    background:rgba(0,0,0,.4);
-    overflow-y:auto;
-    padding:10px;
-    box-sizing:border-box;
-}
+  :root {
+    --bg: #0a0a1a;
+    --panel: #111128;
+    --panel2: #16162e;
+    --border: #2a2a55;
+    --gold: #f5c842;
+    --pink: #ff6eb4;
+    --teal: #4ecdc4;
+    --purple: #9b59b6;
+    --white: #f0f0ff;
+  }
 
-#workspace{
-    position:absolute;
-    left:240px;
-    top:0;
-    right:0;
-    bottom:0;
-}
+  * { margin:0; padding:0; box-sizing:border-box; }
 
-.inventory-item{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    padding:6px;
-    margin:4px 0;
-    border-radius:8px;
-    background:rgba(255,255,255,.08);
-    cursor:pointer;
-}
+  body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: 'Nunito', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
 
-.inventory-item img{
-    width:36px;
-    height:36px;
-}
+  #stars { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; }
 
-.gem{
-    position:absolute;
-    width:90px;
-    height:90px;
-    cursor:grab;
-    transition:transform .2s;
-}
+  header {
+    position: relative; z-index:10;
+    background: linear-gradient(135deg, #1a0a2e 0%, #0d1a3a 50%, #1a0a2e 100%);
+    border-bottom: 2px solid var(--gold);
+    padding: 10px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 2px 30px rgba(245,200,66,0.3);
+  }
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.4rem;
+    background: linear-gradient(135deg, var(--gold), var(--pink), var(--teal));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 3px;
+  }
+  .subtitle { font-size:0.7rem; color: rgba(240,240,255,0.5); letter-spacing:2px; text-transform:uppercase; }
+  #discovery-count {
+    font-family:'Cinzel',serif; font-size:0.85rem; color: var(--gold);
+    background: rgba(245,200,66,0.1); border:1px solid var(--gold);
+    padding: 5px 12px; border-radius:20px;
+  }
 
-.gem img{
-    width:100%;
-    height:100%;
-    object-fit:contain;
-}
+  #app { position: relative; z-index:5; flex:1; display: flex; overflow: hidden; }
 
-.gem:hover{
-    transform:scale(1.1);
-}
+  /* WORKSPACE */
+  #workspace {
+    flex:1; position:relative; overflow:hidden;
+    background: radial-gradient(ellipse at center, #0d0d25 0%, #060611 100%);
+  }
+  #workspace-label {
+    position:absolute; top:10px; left:50%; transform:translateX(-50%);
+    font-size:0.7rem; letter-spacing:3px; color:rgba(255,255,255,0.2);
+    text-transform:uppercase; pointer-events:none;
+  }
 
-.mergeEffect{
-    position:absolute;
-    width:150px;
-    height:150px;
-    border-radius:50%;
-    pointer-events:none;
-    background:radial-gradient(circle,
-    rgba(255,255,255,.9),
-    rgba(255,0,255,.4),
-    transparent);
-    animation:burst .8s forwards;
-}
+  /* ── GEM ICON (shared img + svg fallback) ── */
+  .gem-img {
+    width: 52px; height: 52px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 8px var(--gem-glow, #fff));
+    display: block;
+  }
+  /* SVG fallback shown when img fails or no PNG exists */
+  .gem-svg-fallback {
+    width: 52px; height: 52px;
+    display: none; /* hidden by default; JS shows it on img error */
+  }
 
-@keyframes burst{
-    from{
-        transform:scale(.2);
-        opacity:1;
-    }
-    to{
-        transform:scale(2.4);
-        opacity:0;
-    }
-}
+  /* Workspace draggable gem */
+  .ws-gem {
+    position: absolute;
+    width: 70px; height: 70px;
+    cursor: grab;
+    user-select: none;
+    display: flex; flex-direction:column; align-items:center; justify-content:center;
+    transition: filter 0.1s;
+    -webkit-user-drag: none;
+  }
+  .ws-gem:active { cursor: grabbing; }
+  .ws-gem .gem-label {
+    font-size:0.58rem; font-weight:700; letter-spacing:1px;
+    color: var(--white); text-align:center; margin-top:2px;
+    text-shadow: 0 0 8px var(--gem-glow, #fff);
+    white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; max-width: 70px;
+  }
+  .ws-gem.merging { animation: mergeShake 0.15s ease-in-out 3; }
+  @keyframes mergeShake {
+    0%,100% { transform: translate(0,0) scale(1); }
+    25% { transform: translate(-4px,-4px) scale(1.1); }
+    75% { transform: translate(4px,4px) scale(1.1); }
+  }
+  @keyframes popIn {
+    from { transform:scale(0) rotate(-20deg); opacity:0; }
+    to   { transform:scale(1) rotate(0deg);   opacity:1; }
+  }
+  @keyframes fadeOut {
+    from { opacity:1; transform:scale(1); }
+    to   { opacity:0; transform:scale(0.5); }
+  }
 
-#title{
-    text-align:center;
-    font-size:22px;
-    padding:10px;
-}
+  /* MERGE FLASH */
+  #merge-flash {
+    position:absolute; pointer-events:none; z-index:100;
+    border-radius:50%; transform:translate(-50%,-50%) scale(0); opacity:0;
+  }
+  #merge-flash.explode { animation: flashExplode 0.7s ease-out forwards; }
+  @keyframes flashExplode {
+    0%   { transform:translate(-50%,-50%) scale(0); opacity:1; }
+    50%  { transform:translate(-50%,-50%) scale(3); opacity:0.8; }
+    100% { transform:translate(-50%,-50%) scale(6); opacity:0; }
+  }
 
-.discovered{
-    color:#6cff89;
-}
+  .particle {
+    position:absolute; border-radius:50%; pointer-events:none;
+    animation: particleFly 0.8s ease-out forwards;
+  }
+  @keyframes particleFly {
+    0%   { transform: translate(0,0) scale(1); opacity:1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity:0; }
+  }
 
+  /* ANNOUNCE */
+  #announce {
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) scale(0);
+    z-index:1000; text-align:center; pointer-events:none;
+    background: radial-gradient(ellipse, rgba(20,10,40,0.97) 0%, rgba(10,5,20,0.99) 100%);
+    border: 2px solid var(--gold); border-radius: 20px;
+    padding: 30px 40px; min-width:280px;
+    box-shadow: 0 0 60px rgba(245,200,66,0.5), 0 0 120px rgba(245,200,66,0.2);
+  }
+  #announce.show { animation: announceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  #announce.hide { animation: announceOut 0.3s ease-in forwards; }
+  @keyframes announceIn {
+    from { transform:translate(-50%,-50%) scale(0) rotate(-10deg); opacity:0; }
+    to   { transform:translate(-50%,-50%) scale(1) rotate(0deg);   opacity:1; }
+  }
+  @keyframes announceOut {
+    from { transform:translate(-50%,-50%) scale(1); opacity:1; }
+    to   { transform:translate(-50%,-50%) scale(0.5); opacity:0; }
+  }
+  #announce .new-badge { font-size:0.7rem; letter-spacing:4px; color:var(--gold); text-transform:uppercase; margin-bottom:8px; }
+  #announce .announce-icon { width:90px; height:90px; margin:10px auto; object-fit:contain; }
+  #announce .announce-icon-svg { width:90px; height:90px; margin:10px auto; display:none; }
+  #announce .announce-name {
+    font-family:'Cinzel',serif; font-size:1.5rem;
+    background: linear-gradient(135deg,var(--gold),var(--pink));
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    margin:8px 0;
+  }
+  #announce .announce-type  { font-size:0.75rem; color:rgba(255,255,255,0.5); letter-spacing:2px; }
+  #announce .announce-desc  { font-size:0.8rem; color:rgba(255,255,255,0.75); margin-top:10px; line-height:1.5; }
+
+  /* SIDEBAR */
+  #sidebar {
+    width: 260px;
+    background: var(--panel);
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction:column; overflow: hidden;
+  }
+  #sidebar-tabs { display:flex; border-bottom:1px solid var(--border); }
+  .tab-btn {
+    flex:1; padding:10px 5px; font-size:0.7rem; letter-spacing:2px;
+    text-transform:uppercase; background:none; border:none;
+    color: rgba(255,255,255,0.4); cursor:pointer;
+    font-family:'Nunito',sans-serif; font-weight:700;
+    transition: color 0.2s, background 0.2s;
+    border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); background: rgba(245,200,66,0.05); }
+
+  .tab-panel { display:none; flex:1; overflow-y:auto; padding:10px; }
+  .tab-panel.active { display:block; }
+  .tab-panel::-webkit-scrollbar { width:4px; }
+  .tab-panel::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  .elem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .elem-card {
+    background: var(--panel2); border:1px solid var(--border);
+    border-radius:10px; padding:8px 6px;
+    cursor:pointer; display:flex; flex-direction:column;
+    align-items:center; gap:4px;
+    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .elem-card:hover { transform:translateY(-2px); border-color: var(--gold); box-shadow: 0 4px 16px rgba(245,200,66,0.2); }
+  .elem-card .card-img     { width:36px; height:36px; object-fit:contain; display:block; }
+  .elem-card .card-svg     { width:36px; height:36px; display:none; }
+  .elem-card .card-name    { font-size:0.6rem; font-weight:700; letter-spacing:0.5px; text-align:center; color:rgba(255,255,255,0.85); line-height:1.2; }
+  .elem-card.locked        { opacity:0.25; pointer-events:none; }
+
+  .hint-section { padding:5px 0; }
+  .hint-row {
+    display:flex; align-items:center; gap:6px; padding:6px 8px;
+    border-radius:8px; background:var(--panel2); margin-bottom:5px;
+    font-size:0.65rem; color:rgba(255,255,255,0.6); flex-wrap:wrap;
+  }
+  .hint-row .h-img { width:20px; height:20px; object-fit:contain; flex-shrink:0; }
+  .hint-row .h-svg { width:20px; height:20px; flex-shrink:0; display:none; }
+  .hint-plus { font-size:1rem; color:var(--gold); flex-shrink:0; }
+  .hint-eq   { color: var(--teal); }
+  .hint-result { color: var(--white); font-weight:700; }
+
+  .log-entry { font-size:0.68rem; padding:5px 8px; border-radius:6px; background:var(--panel2); margin-bottom:4px; color:rgba(255,255,255,0.7); border-left: 3px solid var(--teal); }
+  .log-entry.fusion { border-left-color: var(--pink); }
+
+  #bottom-bar {
+    position:relative; z-index:10;
+    background:var(--panel); border-top:1px solid var(--border);
+    padding: 6px 15px; display:flex; align-items:center; gap:10px;
+  }
+  #bottom-bar button {
+    padding:5px 14px; border-radius:20px; border:1px solid var(--border);
+    background:var(--panel2); color:rgba(255,255,255,0.6);
+    font-family:'Nunito',sans-serif; font-size:0.7rem; cursor:pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  #bottom-bar button:hover { border-color:var(--gold); color:var(--gold); }
+  #tip { font-size:0.65rem; color:rgba(255,255,255,0.25); flex:1; text-align:right; }
+
+  /* PNG info banner */
+  #png-info {
+    position:fixed; bottom:44px; left:50%; transform:translateX(-50%);
+    background:rgba(10,10,30,0.92); border:1px solid var(--teal);
+    color:var(--teal); font-size:0.68rem; padding:7px 16px; border-radius:20px;
+    z-index:200; pointer-events:none; opacity:0; transition:opacity 0.4s;
+    white-space:nowrap;
+  }
+  #png-info.visible { opacity:1; }
 </style>
 </head>
 <body>
 
-<div id="sidebar">
-    <div id="title">Steven Universe Alchemy</div>
-    <h3>Discovered Gems</h3>
-    <div id="inventory"></div>
+<canvas id="stars"></canvas>
+
+<header>
+  <div>
+    <h1>✦ Crystal Alchemy ✦</h1>
+    <div class="subtitle">Steven Universe · Gem Fusion Lab</div>
+  </div>
+  <div id="discovery-count">0 / 0 discovered</div>
+</header>
+
+<div id="app">
+  <div id="workspace">
+    <div id="workspace-label">— Drag gems here to fuse them —</div>
+    <div id="merge-flash"></div>
+  </div>
+
+  <div id="sidebar">
+    <div id="sidebar-tabs">
+      <button class="tab-btn active" data-tab="elements">Gems</button>
+      <button class="tab-btn" data-tab="hints">Hints</button>
+      <button class="tab-btn" data-tab="log">Log</button>
+    </div>
+    <div class="tab-panel active" id="tab-elements">
+      <div class="elem-grid" id="elem-grid"></div>
+    </div>
+    <div class="tab-panel" id="tab-hints">
+      <div class="hint-section" id="hint-section"></div>
+    </div>
+    <div class="tab-panel" id="tab-log">
+      <div id="log-list"></div>
+    </div>
+  </div>
 </div>
 
-<div id="workspace"></div>
+<div id="bottom-bar">
+  <button onclick="clearWorkspace()">Clear Table</button>
+  <button onclick="showAllHints()">Show All Hints</button>
+  <span id="tip">Drag gems onto each other to fuse · Click sidebar gems to place</span>
+</div>
+
+<div id="announce">
+  <div class="new-badge">✦ NEW DISCOVERY ✦</div>
+  <img  class="announce-icon"     id="announce-img" src="" alt="">
+  <div  class="announce-icon-svg" id="announce-svg"></div>
+  <div class="announce-name" id="announce-name"></div>
+  <div class="announce-type" id="announce-type"></div>
+  <div class="announce-desc" id="announce-desc"></div>
+</div>
+
+<div id="png-info">Place PNGs named e.g. <strong>quartz.png</strong> in an <strong>images/</strong> folder next to this file</div>
 
 <script>
+// ============================================================
+//  STARFIELD
+// ============================================================
+const canvas = document.getElementById('stars');
+const ctx = canvas.getContext('2d');
+function resizeCanvas() { canvas.width=window.innerWidth; canvas.height=window.innerHeight; }
+resizeCanvas(); window.addEventListener('resize', resizeCanvas);
+const stars = Array.from({length:200}, () => ({
+  x:Math.random()*2000, y:Math.random()*1200,
+  r:Math.random()*1.5+0.3, a:Math.random(), s:Math.random()*0.01+0.003
+}));
+function drawStars() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  stars.forEach(s => {
+    s.a+=s.s; if(s.a>1||s.a<0) s.s*=-1;
+    ctx.beginPath(); ctx.arc(s.x%canvas.width,s.y%canvas.height,s.r,0,Math.PI*2);
+    ctx.fillStyle=`rgba(200,200,255,${s.a*0.8})`; ctx.fill();
+  });
+  requestAnimationFrame(drawStars);
+}
+drawStars();
 
-const recipes = {
-    "Ruby+Sapphire":"Garnet",
-    "Pearl+Amethyst":"Opal",
-    "Ruby+Pearl":"Rhodonite",
-    "Amethyst+Ruby":"Sugilite",
-    "Pearl+Rose Quartz":"Rainbow Quartz",
-    "Steven+Amethyst":"Smoky Quartz",
-    "Garnet+Pearl+Amethyst":"Alexandrite",
-    "Yellow Core+White Core":"Yellow Diamond",
-    "Blue Core+White Core":"Blue Diamond",
-    "Yellow Diamond+Blue Diamond":"White Diamond",
-    "Pink Core+White Diamond":"Pink Diamond",
-    "Pink Diamond+Pearl":"Rose Quartz",
+// ============================================================
+//  IMAGE PATH HELPER
+//  Looks for images/<key>.png next to the HTML file.
+//  If the image 404s, the SVG fallback is shown instead.
+// ============================================================
+function imgPath(key) {
+  return `images/${key}.png`;
+}
+
+// ============================================================
+//  SVG FALLBACK SHAPES  (shown when no PNG is found)
+// ============================================================
+function gemSVG(color, shape, glow) {
+  const shapes = {
+    diamond:   `<polygon points="35,5 65,20 65,50 35,65 5,50 5,20"/>`,
+    triangle:  `<polygon points="35,5 65,65 5,65"/>`,
+    star:      `<polygon points="35,5 42,28 65,28 47,43 54,65 35,52 16,65 23,43 5,28 28,28"/>`,
+    square:    `<rect x="8" y="8" width="54" height="54" rx="5"/>`,
+    oval:      `<ellipse cx="35" cy="35" rx="28" ry="20"/>`,
+    teardrop:  `<path d="M35,5 Q60,10 60,40 Q60,65 35,65 Q10,65 10,40 Q10,10 35,5Z"/>`,
+    hexagon:   `<polygon points="35,5 62,20 62,50 35,65 8,50 8,20"/>`,
+    shield:    `<path d="M35,5 L62,18 L62,42 Q62,60 35,68 Q8,60 8,42 L8,18Z"/>`,
+    pear:      `<path d="M35,5 Q50,5 55,22 Q62,40 50,58 Q42,68 35,68 Q28,68 20,58 Q8,40 15,22 Q20,5 35,5Z"/>`,
+    crescent:  `<path d="M50,10 Q65,35 50,60 Q30,72 12,58 Q28,55 30,35 Q28,15 12,12 Q30,-2 50,10Z"/>`,
+    octagon:   `<polygon points="22,5 48,5 65,22 65,48 48,65 22,65 5,48 5,22"/>`,
+    arrow:     `<polygon points="35,5 60,35 47,35 47,65 23,65 23,35 10,35"/>`,
+    cross:     `<path d="M22,5 L48,5 L48,22 L65,22 L65,48 L48,48 L48,65 L22,65 L22,48 L5,48 L5,22 L22,22Z"/>`,
+    marquise:  `<ellipse cx="35" cy="35" rx="30" ry="14" transform="rotate(45 35 35)"/>`,
+    pentagon:  `<polygon points="35,5 65,27 54,62 16,62 5,27"/>`,
+  };
+  const sh = shapes[shape] || shapes.diamond;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 70 70">
+    <defs>
+      <radialGradient id="rg_${shape}_${color[1].replace('#','')}" cx="40%" cy="30%">
+        <stop offset="0%"   stop-color="${color[0]}"/>
+        <stop offset="60%"  stop-color="${color[1]}"/>
+        <stop offset="100%" stop-color="${color[2]||color[1]}"/>
+      </radialGradient>
+      <filter id="gf"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <g fill="url(#rg_${shape}_${color[1].replace('#','')})" stroke="${glow}" stroke-width="2" filter="url(#gf)">${sh}</g>
+    <circle cx="25" cy="22" r="4" fill="rgba(255,255,255,0.4)"/>
+  </svg>`;
+}
+
+// ============================================================
+//  GEM DATABASE
+//  Each entry includes:
+//    svg   — inline SVG string used as fallback
+//    glow  — hex colour for drop-shadow / particles
+// ============================================================
+const GEMS = {
+  // ── STARTERS ──
+  quartz:      { name:'Rose Quartz',        type:'Starter',     glow:'#ff6eb4', svg: gemSVG(['#f8d7e8','#e888b8','#c2427a'],'diamond','#ff6eb4'),  desc:'The most common gem type on Earth.',                   starter:true },
+  amethyst:    { name:'Amethyst',      type:'Starter',     glow:'#c39bd3', svg: gemSVG(['#ddb3ff','#9b59b6','#5e1a8a'],'hexagon','#c39bd3'),  desc:'A fun-loving gem from Kindergarten.',                  starter:true },
+  pearl:       { name:'Pearl',         type:'Starter',     glow:'#f8bbd0', svg: gemSVG(['#fff5fa','#f0d0e8','#d4a0c0'],'oval','#f8bbd0'),     desc:'Graceful, precise, and deeply caring.',                starter:true },
+  ruby:        { name:'Ruby',          type:'Starter',     glow:'#ef9a9a', svg: gemSVG(['#e53935','#c62828','#8b0000'],'diamond','#ef9a9a'),   desc:'One half of Garnet — passionate and fierce.',          starter:true },
+  sapphire:    { name:'Sapphire',      type:'Starter',     glow:'#90caf9', svg: gemSVG(['#1565c0','#0d47a1','#002171'],'teardrop','#90caf9'),  desc:'The other half of Garnet — future vision.',            starter:true },
+  peridot:     { name:'Peridot',       type:'Starter',     glow:'#aed581', svg: gemSVG(['#d4f08c','#8bc34a','#558b2f'],'triangle','#aed581'),  desc:'A self-proclaimed "Technical Gem".',                   starter:true },
+  lapis:       { name:'Lapis Lazuli',  type:'Starter',     glow:'#64b5f6', svg: gemSVG(['#90caf9','#1565c0','#0d47a1'],'teardrop','#64b5f6'),  desc:'Controls water with her wings of ocean.',              starter:true },
+
+  // ── GARNET & HER FUSIONS ──
+  garnet:      { name:'Garnet',        type:'Component',   glow:'#ef5350', svg: gemSVG(['#e53935','#b71c1c','#7b0000'],'square','#ef5350'),    desc:'Calm, powerful, and always a fusion of Ruby & Sapphire.' },
+  rubySquared: { name:'Ruby² (self-fused)', type:'Fusion', glow:'#ff5252', svg: gemSVG(['#ff1744','#d50000','#7f0000'],'marquise','#ff5252'),  desc:'Ruby fused with herself — impulsive and chaotic.' },
+  rhodonite:   { name:'Rhodonite',     type:'Fusion',      glow:'#f06292', svg: gemSVG(['#f06292','#c2185b','#7b1fa2'],'pentagon','#f06292'),  desc:'Ruby + Pearl — an off-colour fusion from Homeworld.' },
+  padparadscha:{ name:'Padparadscha',  type:'Special',     glow:'#ff8a65', svg: gemSVG(['#ffab40','#ff7043','#e64a19'],'oval','#ff8a65'),       desc:'A rare Sapphire who sees the recent past instead of the future.' },
+  fluorite:    { name:'Fluorite',      type:'Fusion',      glow:'#ce93d8', svg: gemSVG(['#ab47bc','#7b1fa2','#4a148c'],'octagon','#ce93d8'),   desc:'A six-gem fusion of off-colours — slow and wise.' },
+
+  // ── TIER 1 FUSIONS ──
+  opal:        { name:'Opal',          type:'Fusion',      glow:'#f48fb1', svg: gemSVG(['#fce4ec','#f8bbd0','#e91e63'],'marquise','#f48fb1'),  desc:'Amethyst + Pearl — rare beauty and grace.' },
+  sugilite:    { name:'Sugilite',      type:'Fusion',      glow:'#ce93d8', svg: gemSVG(['#7b1fa2','#4a148c','#1a0030'],'pentagon','#ce93d8'),  desc:'Amethyst + Garnet — wild, powerful, unstoppable.' },
+  sardonyx:    { name:'Sardonyx',      type:'Fusion',      glow:'#ffab91', svg: gemSVG(['#ffccbc','#ff8a65','#bf360c'],'star','#ffab91'),      desc:'Pearl + Garnet — theatrical and precise.' },
+  alexandrite: { name:'Alexandrite',   type:'Fusion',      glow:'#80cbc4', svg: gemSVG(['#26c6da','#00838f','#006064'],'octagon','#80cbc4'),   desc:'All three Crystal Gems + Garnet — the full stack.' },
+  malachite:   { name:'Malachite',     type:'Fusion',      glow:'#69f0ae', svg: gemSVG(['#1b5e20','#2e7d32','#43a047'],'shield','#69f0ae'),    desc:'Jasper + Lapis — a toxic, unstable fusion.' },
+  smoky:       { name:'Smoky Quartz',  type:'Fusion',      glow:'#a1887f', svg: gemSVG(['#6d4c41','#4e342e','#3e2723'],'pear','#a1887f'),      desc:'Steven + Amethyst — chill and surprisingly powerful.' },
+  rainbow:     { name:'Rainbow Quartz',type:'Fusion',      glow:'#ce93d8', svg: gemSVG(['#ffcdd2','#f8bbd0','#b3e5fc'],'crescent','#ce93d8'),  desc:'Rose Quartz + Pearl — a dazzling pair.' },
+  turquoise:   { name:'Turquoise',     type:'Fusion',      glow:'#26c6da', svg: gemSVG(['#00e5ff','#0097a7','#006064'],'hexagon','#26c6da'),   desc:'Lapis Lazuli + Peridot — water and technology as one.' },
+  obsidian:    { name:'Obsidian',      type:'Mega Fusion', glow:'#b71c1c', svg: gemSVG(['#212121','#424242','#1a1a2e'],'arrow','#ef5350'),     desc:'All four Crystal Gems together — volcanic!' },
+
+  // ── HOMEWORLD GEMS ──
+  jasper:      { name:'Jasper',        type:'Homeworld',   glow:'#ff6f00', svg: gemSVG(['#ff8f00','#e65100','#bf360c'],'pentagon','#ff6f00'),  desc:'A powerful Homeworld quartz warrior.' },
+  aquamarine:  { name:'Aquamarine',    type:'Homeworld',   glow:'#b2ebf2', svg: gemSVG(['#e0f7fa','#80deea','#00acc1'],'triangle','#b2ebf2'), desc:'Small but terrifyingly powerful. A collector.' },
+  topaz:       { name:'Topaz',         type:'Homeworld',   glow:'#fff176', svg: gemSVG(['#fff9c4','#fff176','#fdd835'],'square','#fff176'),   desc:'Silent, obedient Homeworld soldiers.' },
+  spinel:      { name:'Spinel',        type:'Special',     glow:'#f48fb1', svg: gemSVG(['#f06292','#e91e63','#ad1457'],'cross','#f48fb1'),    desc:"Pink Diamond's playmate — dangerous when betrayed." },
+  bismuth:     { name:'Bismuth',       type:'Special',     glow:'#90a4ae', svg: gemSVG(['#b0bec5','#78909c','#546e7a'],'hexagon','#90a4ae'),  desc:'A blacksmith gem with rainbow-colored metal.' },
+
+  // ── THE DIAMONDS ──
+  whiteDiamond:  { name:'White Diamond',               type:'Diamond',   glow:'#ffffff', svg: gemSVG(['#ffffff','#f5f5f5','#e0e0e0'],'diamond','#ffffff'), desc:'The supreme ruler of Homeworld. Immense power.' },
+  yellowDiamond: { name:'Yellow Diamond',              type:'Diamond',   glow:'#ffee58', svg: gemSVG(['#fff9c4','#ffee58','#f9a825'],'diamond','#ffee58'), desc:'Practical, ruthless, and devastatingly logical.' },
+  blueDiamond:   { name:'Blue Diamond',                type:'Diamond',   glow:'#64b5f6', svg: gemSVG(['#bbdefb','#64b5f6','#1565c0'],'diamond','#64b5f6'), desc:'Compassionate but cruel in her grief.' },
+  pinkDiamond:   { name:'Pink Diamond',                type:'Diamond',   glow:'#ff80ab', svg: gemSVG(['#fce4ec','#f48fb1','#e91e63'],'diamond','#e91e63'), desc:"Became Rose Quartz. Steven's mother." },
+  allDiamonds:   { name:'The Great Diamond Authority', type:'Legendary', glow:'#ffffff', svg: gemSVG(['#f5f5f5','#fffde7','#e3f2fd'],'cross','#ffffff'),   desc:'All four Diamonds united — the most powerful force in the universe!' },
 };
 
-const gemImages = {
-    "Ruby":"images/ruby.png",
-    "Sapphire":"images/sapphire.png",
-    "Pearl":"images/pearl.png",
-    "Amethyst":"images/amethyst.png",
-    "Steven":"images/steven.png",
+// ============================================================
+//  RECIPES
+// ============================================================
+const RECIPES = [
+  // ── Garnet unlock (must be discovered first) ──
+  ['ruby','sapphire','garnet'],
 
-    "White Core":"images/whitecore.png",
-    "Yellow Core":"images/yellowcore.png",
-    "Blue Core":"images/bluecore.png",
-    "Pink Core":"images/pinkcore.png",
+  // ── Ruby fusions ──
+  ['ruby','ruby','rubySquared'],          // Ruby fusing with herself
+  ['ruby','pearl','rhodonite'],           // Off-colour fusion
+  ['ruby','amethyst','sugilite'],         // passion + wildness
+  ['ruby','jasper','jasper'],             // overpowered by Jasper
+  ['ruby','aquamarine','spinel'],         // Homeworld red + blue = pink energy
 
-    "Garnet":"images/garnet.png",
-    "Opal":"images/opal.png",
-    "Sugilite":"images/sugilite.png",
-    "Rhodonite":"images/rhodonite.png",
-    "Rainbow Quartz":"images/rainbowquartz.png",
-    "Smoky Quartz":"images/smokyquartz.png",
-    "Alexandrite":"images/alexandrite.png",
+  // ── Sapphire fusions ──
+  ['sapphire','pearl','fluorite'],        // calm + grace = slow multi-gem wisdom
+  ['sapphire','lapis','blueDiamond'],     // two blue gems → Blue Diamond's theme
+  ['sapphire','aquamarine','aquamarine'], // two water-blue gems reinforce
+  ['sapphire','amethyst','opal'],         // cool + purple → opal shimmer
 
-    "Yellow Diamond":"images/yellowdiamond.png",
-    "Blue Diamond":"images/bluediamond.png",
-    "White Diamond":"images/whitediamond.png",
-    "Pink Diamond":"images/pinkdiamond.png",
-    "Rose Quartz":"images/rosequartz.png"
-};
+  // ── Garnet fusions ──
+  ['garnet','amethyst','sugilite'],
+  ['garnet','pearl','sardonyx'],
+  ['garnet','opal','alexandrite'],        // Garnet + Opal
+  ['garnet','sardonyx','alexandrite'],    // alternative path
+  ['garnet','jasper','jasper'],           // Jasper dominates
+  ['garnet','bismuth','bismuth'],         // forge + strength
 
-const starterGems = [
-    "Ruby","Sapphire","Pearl","Amethyst","Steven",
-    "White Core","Yellow Core","Blue Core","Pink Core"
+  // ── Crystal Gem fusions ──
+  ['amethyst','pearl','opal'],
+  ['alexandrite','sugilite','alexandrite'],
+  ['alexandrite','smoky','obsidian'],
+  ['opal','sardonyx','alexandrite'],
+  ['quartz','amethyst','smoky'],
+  ['amethyst','steven','smoky'],
+  ['rose','pearl','rainbow'],
+
+  // ── Lapis / Peridot ──
+  ['lapis','peridot','turquoise'],        // their named fusion!
+  ['jasper','lapis','malachite'],
+  ['lapis','sapphire','blueDiamond'],
+
+  // ── Homeworld combos ──
+  ['quartz','jasper','jasper'],
+  ['quartz','lapis','aquamarine'],
+  ['peridot','bismuth','topaz'],
+  ['topaz','aquamarine','yellowDiamond'],
+  ['peridot','topaz','yellowDiamond'],    // tech + soldiers = Yellow's army
+
+  // ── Rose / Steven ──
+  ['quartz','garnet','rose'],
+  ['rose','peridot','steven'],
+  ['rose','spinel','pinkDiamond'],
+
+  // ── Bismuth ──
+  ['garnet','amethyst','bismuth'],
+  ['jasper','quartz','bismuth'],
+  ['pearl','bismuth','whiteDiamond'],
+
+  // ── Diamonds ──
+  ['yellowDiamond','blueDiamond','allDiamonds'],
+  ['allDiamonds','pinkDiamond','allDiamonds'],
+  ['allDiamonds','whiteDiamond','allDiamonds'],
+
+  // ── Misc ──
+  ['pinkDiamond','garnet','spinel'],
+  ['aquamarine','sapphire','blueDiamond'],
+  ['fluorite','rhodonite','fluorite'],    // off-colours keep growing
 ];
 
-let discovered =
-    JSON.parse(localStorage.getItem("suAlchemy")) ||
-    starterGems;
+// ============================================================
+//  HELPERS: build an icon element (img + svg fallback)
+// ============================================================
+/**
+ * Returns a wrapper div containing:
+ *   <img class="gem-img" src="images/<key>.png">
+ *   <div class="gem-svg-fallback">…inline svg…</div>
+ *
+ * If the PNG fails to load, the img is hidden and the SVG shown.
+ * size: 'normal' (52px) | 'small' (20px) | 'large' (90px)
+ */
+function buildIcon(key, size = 'normal') {
+  const gem = GEMS[key];
+  const px = size === 'small' ? 20 : size === 'large' ? 90 : 52;
 
-const inventory = document.getElementById("inventory");
-const workspace = document.getElementById("workspace");
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `width:${px}px;height:${px}px;position:relative;flex-shrink:0;`;
 
-function save(){
-    localStorage.setItem("suAlchemy", JSON.stringify(discovered));
+  const img = document.createElement('img');
+  img.src = imgPath(key);
+  img.alt = gem.name;
+  img.style.cssText = `width:${px}px;height:${px}px;object-fit:contain;display:block;filter:drop-shadow(0 0 6px ${gem.glow});`;
+  img.draggable = false;
+
+  const svgDiv = document.createElement('div');
+  svgDiv.innerHTML = gem.svg;
+  svgDiv.style.cssText = `width:${px}px;height:${px}px;display:none;`;
+  // Scale the SVG to target size
+  const svgEl = svgDiv.querySelector('svg');
+  if(svgEl) { svgEl.style.width = px+'px'; svgEl.style.height = px+'px'; }
+
+  img.addEventListener('error', () => {
+    img.style.display = 'none';
+    svgDiv.style.display = 'block';
+  });
+
+  wrap.appendChild(img);
+  wrap.appendChild(svgDiv);
+  return wrap;
 }
 
-function updateInventory(){
-    inventory.innerHTML = "";
+// ============================================================
+//  STATE
+// ============================================================
+let discovered = new Set(['quartz','amethyst','pearl','ruby','sapphire','peridot','lapis']);
+let workspaceGems = [];
+let wsIdCounter = 0;
+let logEntries = [];
+let allHintsVisible = false;
 
-    discovered.forEach(gem=>{
-        const div = document.createElement("div");
-        div.className = "inventory-item discovered";
+// ============================================================
+//  INIT
+// ============================================================
+function init() {
+  showPngInfo();
+  renderSidebar();
+  updateDiscoveryCount();
+  renderHints();
+  setupTabs();
+}
 
-        div.innerHTML = `
-            <img src="${gemImages[gem]}">
-            <span>${gem}</span>
-        `;
-
-        div.onclick = ()=>spawnGem(gem);
-
-        inventory.appendChild(div);
+function setupTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
     });
+  });
 }
 
-function spawnGem(name){
-
-    const gem = document.createElement("div");
-    gem.className = "gem";
-    gem.dataset.name = name;
-
-    gem.innerHTML = `<img src="${gemImages[name]}">`;
-
-    gem.style.left = (260 + Math.random()*500) + "px";
-    gem.style.top  = (80 + Math.random()*400) + "px";
-
-    workspace.appendChild(gem);
-
-    makeDraggable(gem);
+function updateDiscoveryCount() {
+  const total = Object.keys(GEMS).length;
+  document.getElementById('discovery-count').textContent = `${discovered.size} / ${total} discovered`;
 }
 
-function makeDraggable(el){
-
-    let dragging = false;
-    let offsetX = 0;
-    let offsetY = 0;
-
-    el.addEventListener("mousedown",(e)=>{
-        dragging = true;
-
-        const rect = el.getBoundingClientRect();
-
-        offsetX = e.clientX - rect.left;
-        offsetY = e.clientY - rect.top;
-
-        el.style.zIndex = 999;
-    });
-
-    document.addEventListener("mousemove",(e)=>{
-        if(!dragging) return;
-
-        const rect = workspace.getBoundingClientRect();
-
-        el.style.left = (e.clientX - rect.left - offsetX) + "px";
-        el.style.top  = (e.clientY - rect.top - offsetY) + "px";
-    });
-
-    document.addEventListener("mouseup",()=>{
-        if(!dragging) return;
-
-        dragging = false;
-        el.style.zIndex = 1;
-
-        checkFusion(el);
-    });
+function showPngInfo() {
+  const banner = document.getElementById('png-info');
+  banner.classList.add('visible');
+  setTimeout(()=>banner.classList.remove('visible'), 6000);
 }
 
-function distance(a,b){
-    const ar = a.getBoundingClientRect();
-    const br = b.getBoundingClientRect();
+// ============================================================
+//  SIDEBAR RENDER
+// ============================================================
+function renderSidebar() {
+  const grid = document.getElementById('elem-grid');
+  grid.innerHTML = '';
+  const order = ['Starter','Component','Fusion','Mega Fusion','Homeworld','Special','Diamond','Legendary'];
+  const sorted = Object.entries(GEMS).sort(([,a],[,b]) => order.indexOf(a.type)-order.indexOf(b.type));
 
-    return Math.hypot(
-        ar.left - br.left,
-        ar.top - br.top
-    );
-}
+  sorted.forEach(([key, gem]) => {
+    const card = document.createElement('div');
+    card.className = 'elem-card' + (discovered.has(key) ? '' : ' locked');
+    card.title = gem.desc;
 
-function checkFusion(target){
+    // Icon
+    const iconWrap = buildIcon(key, 'small');
+    // Scale to 36px for card
+    iconWrap.style.width = '36px';
+    iconWrap.style.height = '36px';
+    const imgs = iconWrap.querySelectorAll('img,div');
+    imgs.forEach(el => { el.style.width='36px'; el.style.height='36px'; });
+    const svgEl = iconWrap.querySelector('svg');
+    if(svgEl) { svgEl.style.width='36px'; svgEl.style.height='36px'; }
 
-    document.querySelectorAll(".gem").forEach(other=>{
-        if(other === target) return;
+    const label = document.createElement('div');
+    label.className = 'card-name';
+    label.textContent = gem.name;
 
-        if(distance(target, other) < 70){
-            combine(target, other);
-        }
-    });
-}
+    card.appendChild(iconWrap);
+    card.appendChild(label);
 
-function combine(a,b){
-
-    const n1 = a.dataset.name;
-    const n2 = b.dataset.name;
-
-    const key1 = `${n1}+${n2}`;
-    const key2 = `${n2}+${n1}`;
-
-    let result = recipes[key1] || recipes[key2];
-
-    if(!result) return;
-
-    const x = parseFloat(a.style.left);
-    const y = parseFloat(a.style.top);
-
-    createEffect(x,y);
-
-    a.remove();
-    b.remove();
-
-    spawnResult(result, x, y);
-
-    if(!discovered.includes(result)){
-        discovered.push(result);
-        save();
-        updateInventory();
+    if(discovered.has(key)) {
+      card.style.setProperty('--gem-glow', gem.glow);
+      card.addEventListener('click', () => spawnGem(key));
     }
+    grid.appendChild(card);
+  });
 }
 
-function createEffect(x,y){
+// ============================================================
+//  SPAWN GEM ON WORKSPACE
+// ============================================================
+function spawnGem(key, x, y) {
+  const ws = document.getElementById('workspace');
+  const rect = ws.getBoundingClientRect();
+  if(x === undefined) {
+    x = rect.left + 60 + Math.random() * (rect.width - 140);
+    y = rect.top  + 60 + Math.random() * (rect.height - 140);
+  }
+  const gem = GEMS[key];
 
-    const fx = document.createElement("div");
-    fx.className = "mergeEffect";
+  const el = document.createElement('div');
+  el.className = 'ws-gem';
+  el.style.left = (x - rect.left - 35) + 'px';
+  el.style.top  = (y - rect.top  - 35) + 'px';
+  el.style.setProperty('--gem-glow', gem.glow);
+  el.style.zIndex = ++wsIdCounter;
+  el.style.animation = 'popIn 0.3s cubic-bezier(0.34,1.56,0.64,1)';
 
-    fx.style.left = (x - 40) + "px";
-    fx.style.top  = (y - 40) + "px";
+  // Icon (52px)
+  const iconWrap = buildIcon(key, 'normal');
+  const label = document.createElement('div');
+  label.className = 'gem-label';
+  label.textContent = gem.name;
 
-    workspace.appendChild(fx);
+  el.appendChild(iconWrap);
+  el.appendChild(label);
 
-    setTimeout(()=>fx.remove(), 800);
+  makeDraggable(el, key);
+  ws.appendChild(el);
+  workspaceGems.push({id: wsIdCounter, key, el});
+  el.dataset.wsid = wsIdCounter;
+  return el;
 }
 
-function spawnResult(name,x,y){
+// ============================================================
+//  DRAG
+// ============================================================
+function makeDraggable(el, key) {
+  let startX, startY, ox, oy, dragging = false;
 
-    const gem = document.createElement("div");
-    gem.className = "gem";
-    gem.dataset.name = name;
+  el.addEventListener('mousedown', e => {
+    if(e.button!==0) return;
+    dragging = true;
+    el.style.zIndex = ++wsIdCounter;
+    startX = e.clientX; startY = e.clientY;
+    ox = el.offsetLeft; oy = el.offsetTop;
+    e.preventDefault();
+  });
+  el.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    dragging = true;
+    el.style.zIndex = ++wsIdCounter;
+    startX = t.clientX; startY = t.clientY;
+    ox = el.offsetLeft; oy = el.offsetTop;
+    e.preventDefault();
+  }, {passive:false});
 
-    gem.innerHTML = `<img src="${gemImages[name]}">`;
+  document.addEventListener('mousemove', e => {
+    if(!dragging) return;
+    el.style.left = (ox + e.clientX - startX) + 'px';
+    el.style.top  = (oy + e.clientY - startY) + 'px';
+  });
+  document.addEventListener('touchmove', e => {
+    if(!dragging) return;
+    const t = e.touches[0];
+    el.style.left = (ox + t.clientX - startX) + 'px';
+    el.style.top  = (oy + t.clientY - startY) + 'px';
+    e.preventDefault();
+  }, {passive:false});
 
-    gem.style.left = x + "px";
-    gem.style.top  = y + "px";
-
-    workspace.appendChild(gem);
-
-    gem.animate([
-        { transform:"scale(0.2) rotate(-120deg)", opacity:0 },
-        { transform:"scale(1.2) rotate(10deg)", opacity:1 },
-        { transform:"scale(1) rotate(0deg)" }
-    ],{
-        duration:600,
-        easing:"ease-out"
-    });
-
-    makeDraggable(gem);
+  const onUp = () => {
+    if(!dragging) return;
+    dragging = false;
+    checkMerge(el, key);
+  };
+  document.addEventListener('mouseup', onUp);
+  document.addEventListener('touchend', onUp);
 }
 
-updateInventory();
+// ============================================================
+//  MERGE
+// ============================================================
+function checkMerge(draggedEl, draggedKey) {
+  const dr = draggedEl.getBoundingClientRect();
+  const drCx = dr.left + dr.width/2;
+  const drCy = dr.top  + dr.height/2;
 
+  for(let item of workspaceGems) {
+    if(item.el === draggedEl) continue;
+    const r = item.el.getBoundingClientRect();
+    const cx = r.left + r.width/2;
+    const cy = r.top  + r.height/2;
+    if(Math.hypot(drCx-cx, drCy-cy) < 65) {
+      attemptFusion(draggedEl, draggedKey, item.el, item.key, (drCx+cx)/2, (drCy+cy)/2);
+      return;
+    }
+  }
+}
+
+function attemptFusion(el1, key1, el2, key2, mx, my) {
+  let result = null;
+  for(let r of RECIPES) {
+    if((r[0]===key1&&r[1]===key2)||(r[0]===key2&&r[1]===key1)) { result=r[2]; break; }
+  }
+
+  el1.classList.add('merging');
+  el2.classList.add('merging');
+
+  setTimeout(() => {
+    el1.classList.remove('merging');
+    el2.classList.remove('merging');
+
+    if(result) {
+      removeWsGem(el1); removeWsGem(el2);
+      doMergeFlash(mx, my, GEMS[result].glow);
+      spawnParticles(mx, my, GEMS[result].glow);
+      setTimeout(() => {
+        spawnGem(result, mx, my);
+        const isNew = !discovered.has(result);
+        discovered.add(result);
+        renderSidebar();
+        updateDiscoveryCount();
+        renderHints();
+        addLog(key1, key2, result, isNew);
+        if(isNew) showAnnounce(result);
+      }, 400);
+    } else {
+      // Bounce apart
+      const dx = el2.offsetLeft - el1.offsetLeft;
+      const dy = el2.offsetTop  - el1.offsetTop;
+      const len = Math.hypot(dx,dy)||1;
+      el1.style.transition='left 0.3s,top 0.3s';
+      el2.style.transition='left 0.3s,top 0.3s';
+      el1.style.left=(el1.offsetLeft-dx/len*30)+'px';
+      el1.style.top =(el1.offsetTop -dy/len*30)+'px';
+      el2.style.left=(el2.offsetLeft+dx/len*30)+'px';
+      el2.style.top =(el2.offsetTop +dy/len*30)+'px';
+      setTimeout(()=>{el1.style.transition='';el2.style.transition='';},300);
+    }
+  }, 300);
+}
+
+function removeWsGem(el) {
+  el.remove();
+  workspaceGems = workspaceGems.filter(g => g.el !== el);
+}
+
+// ============================================================
+//  EFFECTS
+// ============================================================
+function doMergeFlash(x, y, color) {
+  const flash = document.getElementById('merge-flash');
+  flash.style.left=x+'px'; flash.style.top=y+'px';
+  flash.style.width='80px'; flash.style.height='80px';
+  flash.style.background=`radial-gradient(circle, white 0%, ${color} 40%, transparent 70%)`;
+  flash.classList.remove('explode');
+  void flash.offsetWidth;
+  flash.classList.add('explode');
+}
+
+function spawnParticles(x, y, color) {
+  const ws = document.getElementById('workspace');
+  const rect = ws.getBoundingClientRect();
+  for(let i=0;i<16;i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 4 + Math.random()*8;
+    const angle = (i/16)*Math.PI*2 + Math.random()*0.5;
+    const dist  = 60 + Math.random()*80;
+    p.style.cssText=`left:${x-rect.left}px;top:${y-rect.top}px;width:${size}px;height:${size}px;background:${i%3===0?'white':color};--tx:${Math.cos(angle)*dist}px;--ty:${Math.sin(angle)*dist}px;animation-delay:${Math.random()*0.1}s;animation-duration:${0.5+Math.random()*0.4}s;box-shadow:0 0 6px ${color};`;
+    ws.appendChild(p);
+    setTimeout(()=>p.remove(), 1000);
+  }
+}
+
+// ============================================================
+//  ANNOUNCE
+// ============================================================
+function showAnnounce(key) {
+  const gem = GEMS[key];
+  const el = document.getElementById('announce');
+  el.style.borderColor = gem.glow;
+  el.style.boxShadow = `0 0 60px ${gem.glow}40, 0 0 120px ${gem.glow}20`;
+
+  // Icon (large)
+  const img = document.getElementById('announce-img');
+  const svgDiv = document.getElementById('announce-svg');
+  img.src = imgPath(key);
+  img.alt = gem.name;
+  img.style.display = 'block';
+  svgDiv.innerHTML = '';
+  svgDiv.style.display = 'none';
+  img.onerror = () => {
+    img.style.display = 'none';
+    svgDiv.innerHTML = gem.svg;
+    svgDiv.style.display = 'block';
+    const s = svgDiv.querySelector('svg');
+    if(s) { s.style.width='90px'; s.style.height='90px'; }
+  };
+
+  document.getElementById('announce-name').textContent = gem.name;
+  document.getElementById('announce-type').textContent = gem.type;
+  document.getElementById('announce-desc').textContent = gem.desc;
+
+  el.className = 'show';
+  const timer = setTimeout(() => { el.classList.remove('show'); el.classList.add('hide'); setTimeout(()=>el.className='',400); }, 3000);
+  el.onclick = () => { clearTimeout(timer); el.classList.add('hide'); setTimeout(()=>el.className='',400); };
+}
+
+// ============================================================
+//  LOG
+// ============================================================
+function addLog(k1, k2, result, isNew) {
+  const list = document.getElementById('log-list');
+  const div = document.createElement('div');
+  div.className = 'log-entry' + (['Fusion','Mega Fusion','Legendary'].includes(GEMS[result].type)?' fusion':'');
+  const t = new Date().toLocaleTimeString();
+  div.textContent = `${t} · ${GEMS[k1].name} + ${GEMS[k2].name} → ${GEMS[result].name}${isNew?' ✦ NEW!':''}`;
+  list.prepend(div);
+  if(list.children.length > 50) list.removeChild(list.lastChild);
+}
+
+// ============================================================
+//  HINTS
+// ============================================================
+function renderHints() {
+  const section = document.getElementById('hint-section');
+  section.innerHTML = '';
+  let shown = 0;
+  for(let r of RECIPES) {
+    const [a, b, res] = r;
+    const kA = discovered.has(a), kB = discovered.has(b), kR = discovered.has(res);
+    if(kR && !allHintsVisible) continue;
+    if(!kA && !kB && !allHintsVisible) continue;
+
+    const row = document.createElement('div');
+    row.className = 'hint-row';
+
+    function hintIcon(key, known) {
+      if(!known) {
+        const ph = document.createElement('div');
+        ph.style.cssText = 'width:20px;height:20px;background:#333;border-radius:50%;flex-shrink:0;';
+        return ph;
+      }
+      return buildIcon(key, 'small');
+    }
+
+    row.appendChild(hintIcon(a, kA));
+    const nameA = document.createElement('span'); nameA.textContent = kA ? GEMS[a].name : '???'; row.appendChild(nameA);
+    const plus = document.createElement('span'); plus.className='hint-plus'; plus.textContent='+'; row.appendChild(plus);
+    row.appendChild(hintIcon(b, kB));
+    const nameB = document.createElement('span'); nameB.textContent = kB ? GEMS[b].name : '???'; row.appendChild(nameB);
+    const eq = document.createElement('span'); eq.className='hint-eq'; eq.textContent='→'; row.appendChild(eq);
+    const nameR = document.createElement('span'); nameR.className='hint-result'; nameR.textContent = kR ? GEMS[res].name : '???'; row.appendChild(nameR);
+
+    section.appendChild(row);
+    if(++shown > 30 && !allHintsVisible) break;
+  }
+  if(shown === 0) section.innerHTML = '<p style="color:rgba(255,255,255,0.3);font-size:0.75rem;text-align:center;padding:20px">Keep fusing to unlock hints!</p>';
+}
+
+function showAllHints() {
+  allHintsVisible = !allHintsVisible;
+  renderHints();
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector('[data-tab="hints"]').classList.add('active');
+  document.getElementById('tab-hints').classList.add('active');
+}
+
+// ============================================================
+//  CLEAR WORKSPACE
+// ============================================================
+function clearWorkspace() {
+  document.querySelectorAll('.ws-gem').forEach(el => {
+    el.style.animation = 'fadeOut 0.3s ease-out forwards';
+    setTimeout(()=>el.remove(), 300);
+  });
+  workspaceGems = [];
+}
+
+// ============================================================
+//  BOOT — spawn starters
+// ============================================================
+init();
+const starters = Object.entries(GEMS).filter(([,g])=>g.starter).map(([k])=>k);
+const ws = document.getElementById('workspace');
+const wr = ws.getBoundingClientRect();
+starters.forEach((key, i) => {
+  setTimeout(() => {
+    const cols = 4, col = i%cols, row = Math.floor(i/cols);
+    spawnGem(key, wr.left+80+col*110, wr.top+70+row*120);
+  }, i*150);
+});
 </script>
+</body>
+</html>
