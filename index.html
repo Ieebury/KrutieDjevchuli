@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Steven Universe Alchemy</title>
+
+<style>
+body{
+    margin:0;
+    background:linear-gradient(#09162d,#1e1a44);
+    color:white;
+    font-family:Arial,sans-serif;
+    overflow:hidden;
+}
+
+#sidebar{
+    position:absolute;
+    left:0;
+    top:0;
+    width:240px;
+    height:100vh;
+    background:rgba(0,0,0,.4);
+    overflow-y:auto;
+    padding:10px;
+    box-sizing:border-box;
+}
+
+#workspace{
+    position:absolute;
+    left:240px;
+    top:0;
+    right:0;
+    bottom:0;
+}
+
+.inventory-item{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px;
+    margin:4px 0;
+    border-radius:8px;
+    background:rgba(255,255,255,.08);
+    cursor:pointer;
+}
+
+.inventory-item img{
+    width:36px;
+    height:36px;
+}
+
+.gem{
+    position:absolute;
+    width:90px;
+    height:90px;
+    cursor:grab;
+    transition:transform .2s;
+}
+
+.gem img{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+}
+
+.gem:hover{
+    transform:scale(1.1);
+}
+
+.mergeEffect{
+    position:absolute;
+    width:150px;
+    height:150px;
+    border-radius:50%;
+    pointer-events:none;
+    background:radial-gradient(circle,
+    rgba(255,255,255,.9),
+    rgba(255,0,255,.4),
+    transparent);
+    animation:burst .8s forwards;
+}
+
+@keyframes burst{
+    from{
+        transform:scale(.2);
+        opacity:1;
+    }
+    to{
+        transform:scale(2.4);
+        opacity:0;
+    }
+}
+
+#title{
+    text-align:center;
+    font-size:22px;
+    padding:10px;
+}
+
+.discovered{
+    color:#6cff89;
+}
+
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+    <div id="title">Steven Universe Alchemy</div>
+    <h3>Discovered Gems</h3>
+    <div id="inventory"></div>
+</div>
+
+<div id="workspace"></div>
+
+<script>
+
+const recipes = {
+    "Ruby+Sapphire":"Garnet",
+    "Pearl+Amethyst":"Opal",
+    "Ruby+Pearl":"Rhodonite",
+    "Amethyst+Ruby":"Sugilite",
+    "Pearl+Rose Quartz":"Rainbow Quartz",
+    "Steven+Amethyst":"Smoky Quartz",
+    "Garnet+Pearl+Amethyst":"Alexandrite",
+    "Yellow Core+White Core":"Yellow Diamond",
+    "Blue Core+White Core":"Blue Diamond",
+    "Yellow Diamond+Blue Diamond":"White Diamond",
+    "Pink Core+White Diamond":"Pink Diamond",
+    "Pink Diamond+Pearl":"Rose Quartz",
+};
+
+const gemImages = {
+    "Ruby":"images/ruby.png",
+    "Sapphire":"images/sapphire.png",
+    "Pearl":"images/pearl.png",
+    "Amethyst":"images/amethyst.png",
+    "Steven":"images/steven.png",
+
+    "White Core":"images/whitecore.png",
+    "Yellow Core":"images/yellowcore.png",
+    "Blue Core":"images/bluecore.png",
+    "Pink Core":"images/pinkcore.png",
+
+    "Garnet":"images/garnet.png",
+    "Opal":"images/opal.png",
+    "Sugilite":"images/sugilite.png",
+    "Rhodonite":"images/rhodonite.png",
+    "Rainbow Quartz":"images/rainbowquartz.png",
+    "Smoky Quartz":"images/smokyquartz.png",
+    "Alexandrite":"images/alexandrite.png",
+
+    "Yellow Diamond":"images/yellowdiamond.png",
+    "Blue Diamond":"images/bluediamond.png",
+    "White Diamond":"images/whitediamond.png",
+    "Pink Diamond":"images/pinkdiamond.png",
+    "Rose Quartz":"images/rosequartz.png"
+};
+
+const starterGems = [
+    "Ruby","Sapphire","Pearl","Amethyst","Steven",
+    "White Core","Yellow Core","Blue Core","Pink Core"
+];
+
+let discovered =
+    JSON.parse(localStorage.getItem("suAlchemy")) ||
+    starterGems;
+
+const inventory = document.getElementById("inventory");
+const workspace = document.getElementById("workspace");
+
+function save(){
+    localStorage.setItem("suAlchemy", JSON.stringify(discovered));
+}
+
+function updateInventory(){
+    inventory.innerHTML = "";
+
+    discovered.forEach(gem=>{
+        const div = document.createElement("div");
+        div.className = "inventory-item discovered";
+
+        div.innerHTML = `
+            <img src="${gemImages[gem]}">
+            <span>${gem}</span>
+        `;
+
+        div.onclick = ()=>spawnGem(gem);
+
+        inventory.appendChild(div);
+    });
+}
+
+function spawnGem(name){
+
+    const gem = document.createElement("div");
+    gem.className = "gem";
+    gem.dataset.name = name;
+
+    gem.innerHTML = `<img src="${gemImages[name]}">`;
+
+    gem.style.left = (260 + Math.random()*500) + "px";
+    gem.style.top  = (80 + Math.random()*400) + "px";
+
+    workspace.appendChild(gem);
+
+    makeDraggable(gem);
+}
+
+function makeDraggable(el){
+
+    let dragging = false;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    el.addEventListener("mousedown",(e)=>{
+        dragging = true;
+
+        const rect = el.getBoundingClientRect();
+
+        offsetX = e.clientX - rect.left;
+        offsetY = e.clientY - rect.top;
+
+        el.style.zIndex = 999;
+    });
+
+    document.addEventListener("mousemove",(e)=>{
+        if(!dragging) return;
+
+        const rect = workspace.getBoundingClientRect();
+
+        el.style.left = (e.clientX - rect.left - offsetX) + "px";
+        el.style.top  = (e.clientY - rect.top - offsetY) + "px";
+    });
+
+    document.addEventListener("mouseup",()=>{
+        if(!dragging) return;
+
+        dragging = false;
+        el.style.zIndex = 1;
+
+        checkFusion(el);
+    });
+}
+
+function distance(a,b){
+    const ar = a.getBoundingClientRect();
+    const br = b.getBoundingClientRect();
+
+    return Math.hypot(
+        ar.left - br.left,
+        ar.top - br.top
+    );
+}
+
+function checkFusion(target){
+
+    document.querySelectorAll(".gem").forEach(other=>{
+        if(other === target) return;
+
+        if(distance(target, other) < 70){
+            combine(target, other);
+        }
+    });
+}
+
+function combine(a,b){
+
+    const n1 = a.dataset.name;
+    const n2 = b.dataset.name;
+
+    const key1 = `${n1}+${n2}`;
+    const key2 = `${n2}+${n1}`;
+
+    let result = recipes[key1] || recipes[key2];
+
+    if(!result) return;
+
+    const x = parseFloat(a.style.left);
+    const y = parseFloat(a.style.top);
+
+    createEffect(x,y);
+
+    a.remove();
+    b.remove();
+
+    spawnResult(result, x, y);
+
+    if(!discovered.includes(result)){
+        discovered.push(result);
+        save();
+        updateInventory();
+    }
+}
+
+function createEffect(x,y){
+
+    const fx = document.createElement("div");
+    fx.className = "mergeEffect";
+
+    fx.style.left = (x - 40) + "px";
+    fx.style.top  = (y - 40) + "px";
+
+    workspace.appendChild(fx);
+
+    setTimeout(()=>fx.remove(), 800);
+}
+
+function spawnResult(name,x,y){
+
+    const gem = document.createElement("div");
+    gem.className = "gem";
+    gem.dataset.name = name;
+
+    gem.innerHTML = `<img src="${gemImages[name]}">`;
+
+    gem.style.left = x + "px";
+    gem.style.top  = y + "px";
+
+    workspace.appendChild(gem);
+
+    gem.animate([
+        { transform:"scale(0.2) rotate(-120deg)", opacity:0 },
+        { transform:"scale(1.2) rotate(10deg)", opacity:1 },
+        { transform:"scale(1) rotate(0deg)" }
+    ],{
+        duration:600,
+        easing:"ease-out"
+    });
+
+    makeDraggable(gem);
+}
+
+updateInventory();
+
+</script>
